@@ -1,0 +1,9 @@
+# Track 1 runs on CPU. The slide work (Track 2) will reuse your existing pytorch-gpu env,
+# so torch is deliberately not pinned here.
+name: prss
+channels: [conda-forge]
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - -e .[dev]
