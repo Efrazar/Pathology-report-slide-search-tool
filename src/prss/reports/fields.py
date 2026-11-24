@@ -59,26 +59,34 @@ def present(s):
     return None   # PUBLIC: unknown wording stays unknown instead of becoming False
 
 
-def tnm(s):
-    """Pull pathologic T and N categories out of text: 'pT2 pN1a', 'pT3N0MX', 'pT3, pNO' -> ('T3', 'N0').
+_TV = r"(is|X|[0-4O][a-d]?)"                  # T value: Tis, TX, T0-T4 with a-d, O = OCR zero
+_NV = r"(X|[0-3O][a-c]?(?:mi)?)"              # N value: NX, N0-N3 with a-c, N1mi
+_N_AFTER_T = re.compile(r"[\s,;]*(?:[cpyP]\s?)?(?:p\s?)?N\s?" + _NV)
 
-    PUBLIC v2, after looking at real TCGA text:
-    - T must carry the "p" prefix (pT, ypT, rpT). Without it, words like "T2-weighted" or a
-      sample label "T1" would count as stages. We lose a few reports that write "T2 N0", and
-      that trade is measured in script 04.
-    - N is looked for just after the T (within 25 characters), so the "p" is optional there.
-      A lone "pN" anywhere is the fallback.
-    - OCR reads zero as the letter O ("pNO", "pTO"), so O is accepted and turned into 0.
+
+def tnm(s):
+    """Pull pathologic T and N categories out of text -> ('T3', 'N0'), or None for each part not found.
+
+    Version 3, built from 15 real misses (TCGA reports where GDC has a T but v2 found none).
+    T is accepted in three ways, tried in order from most to least certain:
+      1. with a "p" prefix, optionally spaced:      pT2, ypT1c, PT2, "p T 3"
+      2. bare, but immediately followed by an N:    T3N0MX, "T2 N2a", "T2, NO, MX"
+      3. bare, shortly after a staging word:        "pTNM Stage T1b", "Pathologic stage T2"
+    A bare "T2" anywhere else is still ignored ("T2-weighted MRI").
+    N is read right after the T; failing that, a "pN" anywhere. OCR's letter O becomes 0.
+    Known risk: "T2, NO EVIDENCE..." would read as N0. Rare after a T; watch the disagreements.
     """
     s = s or ""
-    t = re.search(r"(?<![A-Za-z])(?:y|r)?p(T(?:is|X|[0-4O][a-d]?))", s)
-    n = None
-    if t:
-        n = re.match(r"[\s,;]*(?:c|p|y)?p?(N(?:X|[0-3O][a-c]?(?:mi)?))", s[t.end():t.end() + 25])
+    t = (re.search(r"(?<![A-Za-z])(?:y|r)?[pP]\s?T\s?" + _TV, s)
+         or re.search(r"(?<![A-Za-z0-9])T" + _TV + r"(?=" + _N_AFTER_T.pattern + r")", s)
+         or re.search(r"(?i:tnm|stage|staging|classification)[^.]{0,20}?(?<![A-Za-z])T" + _TV, s))
+    n = _N_AFTER_T.match(s, t.end()) if t else None
+    if n and n.start() + 25 < n.end():
+        n = None
     if not n:
-        n = re.search(r"(?<![A-Za-z])(?:y)?p(N(?:X|[0-3O][a-c]?(?:mi)?))", s)
-    fix = lambda v: v[0] + v[1:].replace("O", "0") if v else None
-    return (fix(t.group(1)) if t else None, fix(n.group(1)) if n else None)
+        n = re.search(r"(?<![A-Za-z])(?:y)?[pP]\s?N" + _NV, s)
+    zero = lambda v: v.replace("O", "0")
+    return ("T" + zero(t.group(1)) if t else None, "N" + zero(n.group(1)) if n else None)
 
 
 def receptor(text, name):
