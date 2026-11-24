@@ -60,15 +60,25 @@ def present(s):
 
 
 def tnm(s):
-    """Pull pathologic T and N categories out of text: 'pT2 pN1a', 'pT2N1aMX' -> ('T2', 'N1a').
+    """Pull pathologic T and N categories out of text: 'pT2 pN1a', 'pT3N0MX', 'pT3, pNO' -> ('T3', 'N0').
 
-    PUBLIC: the hackathon looked only inside one labelled field. Real reports put TNM in free
-    text and often run the parts together, so this searches any string.
+    PUBLIC v2, after looking at real TCGA text:
+    - T must carry the "p" prefix (pT, ypT, rpT). Without it, words like "T2-weighted" or a
+      sample label "T1" would count as stages. We lose a few reports that write "T2 N0", and
+      that trade is measured in script 04.
+    - N is looked for just after the T (within 25 characters), so the "p" is optional there.
+      A lone "pN" anywhere is the fallback.
+    - OCR reads zero as the letter O ("pNO", "pTO"), so O is accepted and turned into 0.
     """
     s = s or ""
-    t = re.search(r"\b(?:y|r)?p?(T(?:is|X|[0-4][a-d]?))", s)
-    n = re.search(r"(?:\b|(?<=[0-4a-dsX]))(?:y)?p?(N(?:X|[0-3][a-c]?(?:mi)?))", s)
-    return (t.group(1) if t else None, n.group(1) if n else None)
+    t = re.search(r"(?<![A-Za-z])(?:y|r)?p(T(?:is|X|[0-4O][a-d]?))", s)
+    n = None
+    if t:
+        n = re.match(r"[\s,;]*(?:c|p|y)?p?(N(?:X|[0-3O][a-c]?(?:mi)?))", s[t.end():t.end() + 25])
+    if not n:
+        n = re.search(r"(?<![A-Za-z])(?:y)?p(N(?:X|[0-3O][a-c]?(?:mi)?))", s)
+    fix = lambda v: v[0] + v[1:].replace("O", "0") if v else None
+    return (fix(t.group(1)) if t else None, fix(n.group(1)) if n else None)
 
 
 def receptor(text, name):

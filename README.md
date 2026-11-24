@@ -10,7 +10,7 @@ This project continues my module from the DNA Forge AI x Bio Hackathon (November
 
 | Track | What | Status |
 |---|---|---|
-| 1. Reports | Criteria engine on TCGA pathology reports, scored against GDC clinical labels | Scaffold and ported parser; first baseline run next |
+| 1. Reports | Criteria engine on TCGA pathology reports, scored against GDC clinical labels | First baseline run: the hackathon parser found labelled fields in only 2% of 2,408 reports (the corpus has no line breaks). Parser v2 and T/N scoring added. |
 | 2. Slides | Organ classification and similar-slide search with an open foundation model; site-bias study | Not started |
 | 3. Demo | Public Streamlit app on the public results | Not started |
 
@@ -34,7 +34,8 @@ pytest -q                                   # helpers behave as expected
 # download TCGA-Reports from Mendeley into data/raw/ (see DATA_SOURCES.md)
 python scripts/01_load_reports.py
 python scripts/02_get_gdc_clinical.py
-python scripts/03_baseline_coverage.py      # how much does the hackathon parser find on real reports?
+python scripts/03_baseline_coverage.py      # how much does the parser find on real reports?
+python scripts/04_score_tnm.py              # T and N accuracy against GDC labels
 ```
 
 Data and model licences: [DATA_SOURCES.md](DATA_SOURCES.md).
