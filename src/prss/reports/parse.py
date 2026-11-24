@@ -1,38 +1,74 @@
-"""Split a pathology report into labelled fields ("Tumor size: 2.3 cm" -> {"Tumor size": "2.3 cm"}).
+"""Split a pathology report into labelled fields ("Tumor Size: 2.4 cm" -> {"Tumor size": "2.4 cm"}).
 
-The hackathon parser learned its list of field names from the challenge's training labels.
-Those are gone, so here the list is written out by hand from common synoptic-report headings
-(the "Field: value" checklists pathologists fill in). You can extend FIELD_NAMES as you find
-new headings in the TCGA reports; that is exactly the kind of fix Track 1 is about.
+Version 2, after the first look at real TCGA text (see results/baseline_coverage.json):
+the TCGA-Reports corpus has NO line breaks (0 of 9,523 reports), so version 1, which looked
+for "Field:" at the start of a line, found labelled fields in only 2% of reports.
 
-Design choice: this parser never fails. A report with no recognisable fields gives {}, and
-the criteria simply do not match. Counting how many reports give {} is the first measure of
-how far real reports are from the synthetic ones.
+How version 2 works, in two steps:
+1. Find every heading-like token anywhere in the text: one to six capitalised-ish words
+   followed by a colon, sitting at the start of the text or after ". ", "; " or ": ".
+   The text between one heading and the next is that heading's value.
+2. Map each heading to a canonical field name through SYNONYMS. Real reports say
+   "Surgical Margins", "Margins" or "Margin status" for the same thing.
+
+Unknown headings are kept too (under their own name), because script 03 counts them: the most
+common unknown headings are the to-do list for SYNONYMS.
+
+Design choice kept from v1: the parser never fails. A report with no headings gives {}.
 """
 import re
 
-FIELD_NAMES = [
-    "Procedure", "Specimen", "Specimen laterality", "Tumor site", "Histologic type",
-    "Histologic grade", "Nottingham grade", "Gleason score", "Tumor size", "Tumor focality",
-    "Depth of invasion", "Margins", "Lymphovascular invasion", "Perineural invasion",
-    "Lymph nodes", "Regional lymph nodes", "Tumor deposits", "Visceral pleural invasion",
-    "Extraprostatic extension", "Seminal vesicle invasion", "Pathologic stage",
-    "Pathologic staging", "Estrogen receptor", "Progesterone receptor", "HER2", "Biomarkers",
-]
+# canonical field name -> lower-case headings seen in reports that mean the same thing.
+# Extend this from the "most common headings" list that script 03 prints.
+SYNONYMS = {
+    "Specimen": ["specimen", "specimens", "specimens submitted", "specimen type", "material"],
+    "Procedure": ["procedure"],
+    "Histologic type": ["histologic type", "histological type", "tumor type", "tumour type", "histology"],
+    "Histologic grade": ["histologic grade", "histological grade", "grade", "fuhrman nuclear grade",
+                         "nuclear grade", "nottingham grade", "overall grade"],
+    "Tumor size": ["tumor size", "tumour size", "size of tumor", "size"],
+    "Margins": ["margins", "surgical margins", "margin", "margin status", "resection margins"],
+    "Lymphovascular invasion": ["lymphovascular invasion", "lymph-vascular invasion", "angiolymphatic invasion",
+                                "vascular invasion", "venous (large vessel) invasion"],
+    "Perineural invasion": ["perineural invasion"],
+    "Lymph nodes": ["lymph nodes", "regional lymph nodes", "number of lymph nodes examined"],
+    "Pathologic stage": ["pathologic stage", "pathologic staging", "pathological staging", "staging",
+                         "ajcc stage", "tnm", "pathologic staging (ptnm)"],
+    "Estrogen receptor": ["estrogen receptor", "er"],
+    "Progesterone receptor": ["progesterone receptor", "pr"],
+    "HER2": ["her2", "her2/neu", "her-2/neu"],
+}
+_CANON = {syn: canon for canon, syns in SYNONYMS.items() for syn in syns}
 
-# Longest names first, so "Pathologic staging" is tried before "Pathologic stage".
-_KEYS = sorted(FIELD_NAMES, key=len, reverse=True)
-_FIELD = re.compile(
-    r"^\s*(?:[-*•]\s*)?(%s)\s*(?:\([^)]*\))?\s*:\s*(.+)$" % "|".join(map(re.escape, _KEYS)),
-    re.I | re.M,
+# A heading: starts at the beginning or after ". ", "; " or ": ", then 1-6 words (the first
+# capitalised), an optional bracket, then a colon. Capping at 6 words is what stops ordinary
+# sentences that happen to end in a colon from becoming headings.
+_WORD = r"(?:[A-Za-z][\w/,-]*|&)"                    # any later word: "Tumor size" and "Tumor Size" both occur
+_HEADING = re.compile(
+    r"(?:^|(?<=[.;:]\s))"                          # where a heading may start
+    r"([A-Z][\w/,-]*(?:\s" + _WORD + r"){0,5}"   # 1-6 words, the first one capitalised
+    r"(?:\s?\([^)]{0,40}\))?)"                     # optional "(for renal cortical types)"
+    r"\s?:\s"                                      # the colon
 )
 
 
+def headings(text):
+    """All (heading, value) pairs in reading order. Exposed separately so script 03 can count them."""
+    hits = list(_HEADING.finditer(text or ""))
+    out = []
+    for h, nxt in zip(hits, hits[1:] + [None]):
+        value = text[h.end(): nxt.start() if nxt else None].strip(" .;")
+        out.append((h.group(1).strip(), value[:300]))   # cap: a run-away value is usually a parse miss
+    return out
+
+
 def parse(text):
-    """Return {"fields": {name: value}, "text": text}. Field names are normalised to FIELD_NAMES casing."""
-    canon = {k.lower(): k for k in FIELD_NAMES}
-    fields = {}
-    for m in _FIELD.finditer(text or ""):
-        key = canon[m.group(1).lower()]
-        fields.setdefault(key, m.group(2).strip())   # keep the first occurrence; addenda come later
-    return {"fields": fields, "text": text or ""}
+    """Return {"fields": {name: value}, "unknown": {heading: value}, "text": text}."""
+    fields, unknown = {}, {}
+    for head, value in headings(text):
+        canon = _CANON.get(head.lower())
+        if canon:
+            fields.setdefault(canon, value)    # first occurrence wins; addenda come later
+        else:
+            unknown.setdefault(head, value)
+    return {"fields": fields, "unknown": unknown, "text": text or ""}

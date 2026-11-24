@@ -40,7 +40,7 @@ def test_receptor():
 
 
 def test_parse_fields():
-    text = "FINAL DIAGNOSIS\nTumor size: 2.3 cm\n- Lymph nodes: 0 of 14 positive\nMargins: negative"
+    text = "FINAL DIAGNOSIS: Tumor size: 2.3 cm. Lymph nodes: 0 of 14 positive. Margins: negative"
     f = parse(text)["fields"]
     assert f == {"Tumor size": "2.3 cm", "Lymph nodes": "0 of 14 positive", "Margins": "negative"}
 
@@ -50,3 +50,21 @@ def test_criteria_t_number():
     assert _t_number("T2b") == 2
     assert _t_number("Tis") == 0
     assert _t_number("TX") is None
+
+
+# ---- v2: cases taken from real TCGA-Reports text ----
+def test_tnm_ocr_and_false_hits():
+    assert tnm("G3, pT3, pNO. Tubular adenocarcinoma") == ("T3", "N0")   # OCR letter O for zero
+    assert tnm("T2-weighted MRI showed a mass") == (None, None)           # no "p": not a stage
+    assert tnm("pT2 N1 MX") == ("T2", "N1")                                # N right after T, no "p"
+
+
+def test_parse_one_line_report():
+    text = ("Clinical Diagnosis & History: Incidental 3 cm renal mass. Tumor Type: Renal cell carcinoma. "
+            "Tumor Size: Greatest diameter is 2.4 cm. Local Invasion (for renal cortical types): Not Identified. "
+            "Surgical Margins: Free of tumor. Lymph Nodes: Not identified.")
+    p = parse(text)
+    assert p["fields"]["Histologic type"] == "Renal cell carcinoma"
+    assert p["fields"]["Tumor size"] == "Greatest diameter is 2.4 cm"
+    assert p["fields"]["Margins"] == "Free of tumor"
+    assert "Local Invasion (for renal cortical types)" in p["unknown"]
