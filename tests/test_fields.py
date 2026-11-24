@@ -68,3 +68,23 @@ def test_parse_one_line_report():
     assert p["fields"]["Tumor size"] == "Greatest diameter is 2.4 cm"
     assert p["fields"]["Margins"] == "Free of tumor"
     assert "Local Invasion (for renal cortical types)" in p["unknown"]
+
+
+# ---- v3: the T misses Efrain pulled from real reports (24 Nov 2026) ----
+def test_tnm_bare_t_followed_by_n():
+    assert tnm("No lymph node metastases. A. 5: T3N0MX. N. COMMENT.") == ("T3", "N0")
+    assert tnm("PTNM CLASSIFICATION: T2, NO, MX, STAGE IIA.") == ("T2", "N0")
+    assert tnm("PTNM CLASSIFICATION: T2 N2a, MX, STAGE IIIA.") == ("T2", "N2a")
+
+
+def test_tnm_spaced_prefix():
+    assert tnm("corresponds to tumor stage p T 3, p N 0 (0/36), MX, L1, R0.") == ("T3", "N0")
+
+
+def test_tnm_after_staging_word():
+    assert tnm("any of 3 lymph nodes. pTNM Stage T1b NO. Non-tumorous lung") == ("T1b", "N0")
+    assert tnm("Pathologic stage T2N1MX. PART 1: LYMPH NODES") == ("T2", "N1")
+
+
+def test_tnm_still_ignores_stray_t():
+    assert tnm("T2-weighted MRI showed a mass; specimen T1 block") == (None, None)
