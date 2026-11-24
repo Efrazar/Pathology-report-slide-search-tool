@@ -17,10 +17,14 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW, OUT = ROOT / "data" / "raw", ROOT / "data" / "interim"
 
 csv.field_size_limit(sys.maxsize)   # reports are long; the default cell limit is too small
-files = sorted(RAW.glob("*.csv"))
+# rglob + is_file(): unzipping can leave a FOLDER named "TCGA_Reports.csv" with the real file
+# inside it, plus macOS "__MACOSX" junk. We look inside folders and skip both of those.
+files = sorted(p for p in RAW.rglob("*.csv") if p.is_file() and "__MACOSX" not in p.parts)
 if not files:
     sys.exit(f"No CSV in {RAW}. Download TCGA-Reports from Mendeley first (see this file's docstring).")
-src = files[0]
+if len(files) > 1:
+    print("found several CSVs, using the largest:", [str(f.relative_to(RAW)) for f in files])
+src = max(files, key=lambda f: f.stat().st_size)
 with open(src, newline="", encoding="utf-8") as fh:
     reader = csv.DictReader(fh)
     cols = reader.fieldnames
