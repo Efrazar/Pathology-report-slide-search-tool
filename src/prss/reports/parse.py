@@ -66,12 +66,24 @@ def headings(text):
 
 
 def parse(text):
-    """Return {"fields": {name: value}, "unknown": {heading: value}, "text": text}."""
+    """Return {"fields": {name: value}, "unknown": {heading: value}, "text": text}.
+
+    Empty values: a heading followed straight by another heading has nothing of its own.
+    - If the next heading is NOT a known field, it is a sub-heading that carries this field's
+      value: "Tumor Size: Greatest dimension: 2.4 cm" -> Tumor size = "Greatest dimension: 2.4 cm".
+    - If the next heading IS a known field, this one was a section title:
+      "FINAL DIAGNOSIS: Tumor size: 2.3 cm" -> no Diagnosis value, Tumor size = "2.3 cm".
+    Empty values are never stored, because the first value wins and an empty one would block
+    a real one later in the report.
+    """
     fields, unknown = {}, {}
-    for head, value in headings(text):
+    pairs = headings(text)
+    for i, (head, value) in enumerate(pairs):
+        if not value and i + 1 < len(pairs):
+            nxt_head, nxt_value = pairs[i + 1]
+            if _CANON.get(nxt_head.lower()) is None and nxt_value:
+                value = f"{nxt_head}: {nxt_value}"
         if not value:
-            # A section title right before a sub-heading ("FINAL DIAGNOSIS: Tumor size: ...") has
-            # an empty value. Storing it would block a later, real value for the same field.
             continue
         canon = _CANON.get(head.lower())
         if canon:

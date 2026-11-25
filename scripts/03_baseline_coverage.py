@@ -6,7 +6,7 @@ here is the to-do list for Track 1.
 
 Output: printed table, and results/baseline_coverage.json
 """
-import json
+import json, subprocess
 from collections import Counter
 from pathlib import Path
 from prss.reports.parse import SYNONYMS, parse
@@ -44,6 +44,20 @@ for p, c in by_project.items():
 print("\nMost common unmapped headings (% of reports) - candidates for SYNONYMS:")
 for h, c in unknown.most_common(40):
     print(f"  {c / n:6.1%}  {h}")
+
+# Regression check, same idea as script 04: compare field coverage with the committed results.
+try:
+    committed = json.loads(subprocess.run(["git", "show", "HEAD:results/baseline_coverage.json"], cwd=ROOT,
+                                          capture_output=True, text=True, check=True).stdout)["field_coverage"]
+except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, KeyError):
+    committed = {}
+drops = [(k, committed[k], found[k] / n) for k in FIELD_NAMES if k in committed and found[k] / n < committed[k] - 0.01]
+if drops:
+    print("\nWARNING: field coverage worse than the committed results (git HEAD):")
+    for k, before, now in drops:
+        print(f"  {k:28s} {before:6.1%} -> {now:6.1%}")
+elif committed:
+    print("\nRegression check: no field worse than the committed results.")
 
 (ROOT / "results").mkdir(exist_ok=True)
 json.dump({"n": n, "empty": empty, "field_coverage": {k: found[k] / n for k in FIELD_NAMES},
