@@ -45,6 +45,21 @@ def row(project, parsed):
                 histology=(f.get("Histologic type") or "").lower(), fields=f)
 
 
+def gdc_row(g):
+    """The same row shape, built from a GDC clinical record instead of a report.
+
+    Only project, T and N are filled: GDC has no node counts or tumor sizes. Running the SAME
+    criterion functions on both rows is what makes the comparison fair: any difference comes
+    from the inputs (our extraction vs the curated labels), not from two versions of the rules.
+    """
+    import re
+    def main(v, letter):
+        m = re.match(letter + r"(is|X|\d)", v or "")
+        return letter + m.group(1) if m else None
+    return dict(project=g["project"], pT=main(g.get("pT"), "T"), pN=main(g.get("pN"), "N"),
+                nodes_pos=None, size_mm=None, histology=(g.get("diagnosis") or "").lower(), fields={})
+
+
 def _ev(r, *keys):
     return {k: r["fields"][k] for k in keys if k in r["fields"]} or {"TNM": f"{r['pT']} {r['pN']}"}
 
