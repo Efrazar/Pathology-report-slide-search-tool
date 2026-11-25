@@ -114,3 +114,9 @@ def test_extract_tnm_takes_n_from_its_own_field():
     parsed = {"fields": {"Pathologic stage": "pT2", "Lymph nodes": "pN1"}, "text": text}
     t, n, pos = extract_tnm(parsed)
     assert (t, n) == ("T2", "N1") and text[pos:].startswith("pT2")
+
+
+def test_parse_empty_heading_borrows_subheading_value():
+    f = parse("Tumor Size: Greatest dimension: 2.4 cm. Margins: Free of tumor.")["fields"]
+    assert f["Tumor size"] == "Greatest dimension: 2.4 cm"
+    assert size_mm(f["Tumor size"]) == 24.0
