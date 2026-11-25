@@ -120,3 +120,11 @@ def test_parse_empty_heading_borrows_subheading_value():
     f = parse("Tumor Size: Greatest dimension: 2.4 cm. Margins: Free of tumor.")["fields"]
     assert f["Tumor size"] == "Greatest dimension: 2.4 cm"
     assert size_mm(f["Tumor size"]) == 24.0
+
+
+def test_same_criterion_on_report_and_gdc():
+    from prss.reports.criteria import colon_stage_iii, gdc_row, row
+    ours = row("TCGA-COAD", parse("Lymph nodes: 3 of 14 positive. Pathologic stage: pT3 pN1b."))
+    truth = gdc_row({"project": "TCGA-COAD", "pT": "T3", "pN": "N1b"})
+    assert colon_stage_iii(ours) and colon_stage_iii(truth)
+    assert gdc_row({"project": "TCGA-COAD", "pT": "Not Reported", "pN": None})["pT"] is None

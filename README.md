@@ -62,6 +62,7 @@ python scripts/01_load_reports.py
 python scripts/02_get_gdc_clinical.py
 python scripts/03_baseline_coverage.py      # how much does the parser find on real reports?
 python scripts/04_score_tnm.py              # T and N accuracy against GDC labels; warns if worse than committed results
+python scripts/05_score_criteria.py         # trial criteria: report text vs GDC labels, precision/recall/F1
 ```
 
 Data and model licences: [DATA_SOURCES.md](DATA_SOURCES.md).
