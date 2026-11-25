@@ -11,7 +11,7 @@ This project continues my module from the DNA Forge AI x Bio Hackathon (November
 | Track | What | Status |
 |---|---|---|
 | 1. Reports | Trial criteria and T/N stage from TCGA pathology reports, scored against GDC clinical labels | Results below: mean F1 0.83 on 5 criteria, precision 94–97% |
-| 2. Slides | Organ classification and similar-slide search with an open foundation model; site-bias study | Not started |
+| 2. Slides | Organ classification and similar-slide search with an open foundation model; site-bias study | Baseline scripts ready (PanNuke tiles, H-optimus-0 embeddings); first run pending |
 | 3. Demo | Public Streamlit app on the public results | Not started |
 
 ## Results so far (Track 1)
@@ -81,6 +81,22 @@ python scripts/02_get_gdc_clinical.py
 python scripts/03_baseline_coverage.py      # how much does the parser find on real reports?
 python scripts/04_score_tnm.py              # T and N accuracy against GDC labels; warns if worse than committed results
 python scripts/05_score_criteria.py         # trial criteria: report text vs GDC labels, precision/recall/F1
+```
+
+## Run Track 2 (slides, baseline)
+
+Needs a CUDA GPU for step 11 only (tested target: RTX 2080 Ti, 11 GB). Steps 12 and 13 run on the CPU in seconds.
+
+```bash
+pip install -e ".[slides]"                  # torch, timm, huggingface_hub
+python -c "import torch; print(torch.cuda.is_available())"   # must print True for step 11
+# accept the terms at https://huggingface.co/bioptimus/H-optimus-0, then:
+huggingface-cli login                       # paste a read token
+python scripts/10_get_pannuke.py            # 3 folds, about 3 GB download; tiles per tissue type
+python scripts/11_embed_tiles.py --smoke    # 1 minute, random tiny model: checks the pipeline
+python scripts/11_embed_tiles.py            # H-optimus-0, fp16; the only GPU step
+python scripts/12_organ_probe.py            # linear probe: accuracy, balanced accuracy, macro F1
+python scripts/13_similar_tiles.py          # precision at 1, 5, 10 against a chance line
 ```
 
 Data and model licences: [DATA_SOURCES.md](DATA_SOURCES.md).
