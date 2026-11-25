@@ -17,7 +17,7 @@ matters more than the score.
 import json, re
 from collections import defaultdict
 from pathlib import Path
-from prss.reports.fields import tnm_match
+from prss.reports.criteria import extract_tnm
 from prss.reports.parse import parse
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,8 +38,7 @@ for r in reports:
     if not g:
         continue
     p = parse(r["text"])
-    stage_text = p["fields"].get("Pathologic stage") or r["text"]
-    t_val, n_val, t_pos = tnm_match(stage_text)
+    t_val, n_val, t_pos = extract_tnm(p)
     ours = {"T": t_val, "N": n_val}
     for letter in "TN":
         truth = main_cat(g["p" + letter], letter)
@@ -53,7 +52,7 @@ for r in reports:
         if got is not None and got != truth:
             # Show the words the T was actually read from (v1 searched for "pT" and could land
             # inside unrelated words such as "HercepTest", or find nothing for a bare "T2").
-            i = r["text"].find(stage_text[t_pos:t_pos + 12]) if t_pos is not None else -1
+            i = t_pos if t_pos is not None else -1
             bad.append({"patient": r["patient"], "project": g["project"], "field": letter, "ours": got,
                         "gdc": truth, "context": r["text"][max(0, i - 80): i + 100] if i >= 0 else ""})
 

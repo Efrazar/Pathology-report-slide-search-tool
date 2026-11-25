@@ -9,14 +9,37 @@ labels exist for them.
 Each criterion returns None (no match) or a dict of the evidence that triggered it, so a
 person can check the match by reading two lines instead of the whole report.
 """
-from .fields import nodes_pos, size_mm, tnm
+from .fields import nodes_pos, size_mm, tnm_match
+
+
+def extract_tnm(parsed):
+    """T and N for one report: (T, N, position of the T in the full text, or None).
+
+    Look in the "Pathologic stage" field first, because it is the most reliable place. Then fill
+    any part still missing from the whole text. Why both: a stage field often holds only the T
+    ("Primary Tumor (pT): pT2"), while the N sits in its own field ("Regional Lymph Nodes (pN): pN1").
+    Searching the stage field alone would lose that N.
+    """
+    text = parsed["text"]
+    field = parsed["fields"].get("Pathologic stage")
+    t = n = pos = None
+    if field:
+        t, n, p = tnm_match(field)
+        if p is not None:
+            start = text.find(field)
+            pos = start + p if start >= 0 else None
+    if t is None or n is None:
+        t2, n2, p2 = tnm_match(text)
+        if t is None:
+            t, pos = t2, p2
+        n = n or n2
+    return t, n, pos
 
 
 def row(project, parsed):
     """Flatten one parsed report into the values the criteria use."""
     f, text = parsed["fields"], parsed["text"]
-    stage_text = f.get("Pathologic stage") or f.get("Pathologic staging") or text
-    pT, pN = tnm(stage_text)
+    pT, pN, _ = extract_tnm(parsed)
     pos, _ = nodes_pos(f.get("Lymph nodes") or f.get("Regional lymph nodes") or text)
     return dict(project=project, pT=pT, pN=pN, nodes_pos=pos, size_mm=size_mm(f.get("Tumor size")),
                 histology=(f.get("Histologic type") or "").lower(), fields=f)

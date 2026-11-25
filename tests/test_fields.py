@@ -106,3 +106,11 @@ def test_tnm_match_position():
     text = "Nuclear score:3, Pathological TNM stage: pT2. Dr."
     t, n, pos = tnm_match(text)
     assert t == "T2" and "TNM stage: pT2" in text[pos:]
+
+
+def test_extract_tnm_takes_n_from_its_own_field():
+    from prss.reports.criteria import extract_tnm
+    text = "Primary Tumor (pT): pT2. Regional Lymph Nodes (pN): pN1. Distant Metastasis (pM): pMX."
+    parsed = {"fields": {"Pathologic stage": "pT2", "Lymph nodes": "pN1"}, "text": text}
+    t, n, pos = extract_tnm(parsed)
+    assert (t, n) == ("T2", "N1") and text[pos:].startswith("pT2")
