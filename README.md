@@ -10,11 +10,28 @@ This project continues my module from the DNA Forge AI x Bio Hackathon (November
 
 | Track | What | Status |
 |---|---|---|
-| 1. Reports | Read pathologic T and N stage from TCGA pathology reports, scored against GDC clinical labels | First results below. Trial criteria on top of these fields: next. |
+| 1. Reports | Trial criteria and T/N stage from TCGA pathology reports, scored against GDC clinical labels | Results below: mean F1 0.83 on 5 criteria, precision 94–97% |
 | 2. Slides | Organ classification and similar-slide search with an open foundation model; site-bias study | Not started |
 | 3. Demo | Public Streamlit app on the public results | Not started |
 
 ## Results so far (Track 1)
+
+### Trial criteria: does the report text pick the same patients as the curated labels?
+
+The same criterion functions run twice per patient: once on what the parser extracted from the report, once on the GDC labels. Only patients of the criterion's cancer type whose GDC record can decide it are counted.
+
+| Criterion | Patients judged | Qualify per GDC | Precision | Recall | F1 |
+|---|---|---|---|---|---|
+| Colon, pT4 | 351 | 39 | 97% | 92% | 0.95 |
+| Colon, node-positive (stage III, unless metastatic) | 351 | 134 | 96% | 82% | 0.88 |
+| Lung adenocarcinoma, node-positive | 379 | 121 | 94% | 69% | 0.80 |
+| Lung squamous, pT3 or higher | 391 | 66 | 96% | 68% | 0.80 |
+| Breast, node-positive and over 20 mm | 944 | 374 | 97% | 60% | 0.74 |
+| **Mean** | | | | | **0.83** |
+
+The hackathon scored a mean F1 of 1.00 with the same kind of rules on synthetic reports. On real reports, **precision stays at 94–97%**: when the engine flags a patient, GDC agrees about 19 times in 20. **Recall varies from 60% to 92%** and tracks how often the T or N stage can be found in the text at all (below). Full numbers: [`results/criteria_scores.json`](results/criteria_scores.json).
+
+### T and N extraction
 
 2,408 TCGA pathology reports from four cancer types, OCR text from the [TCGA-Reports](https://data.mendeley.com/datasets/hyg5xkznpx/1) corpus. "Labels" are the pathologic T and N categories in the NCI Genomic Data Commons (GDC). Scores compare main categories (T2a and T2b both count as T2).
 
@@ -38,7 +55,8 @@ Accuracy when a value was found stayed at 95–98% throughout. The gains came fr
 **Limitations.**
 - GDC labels are not ground truth. In a manual review of 15 disagreements, about half were reports that clearly state a different stage from GDC, for example an amended report that corrects the staging. GDC may draw on sources beyond the report. 15 cases is a small sample, so this is a lead to follow up, not a measured error rate.
 - Some reports contain no staging at all, so no text method can reach 100% end-to-end.
-- The scores cover only four cancer types, and only T and N. The trial criteria built on these fields are not scored yet.
+- Only four cancer types and five criteria, all built on T and N, because those are the fields GDC labels for every case. Criteria on receptors (ER/PR/HER2), margins or histology need other labels and are not scored yet.
+- The 255 criteria disagreements have not yet been reviewed by hand, so the split between our misses and label problems is unknown for the criteria.
 
 ## Layout
 
