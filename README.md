@@ -10,9 +10,35 @@ This project continues my module from the DNA Forge AI x Bio Hackathon (November
 
 | Track | What | Status |
 |---|---|---|
-| 1. Reports | Criteria engine on TCGA pathology reports, scored against GDC clinical labels | First baseline run: the hackathon parser found labelled fields in only 2% of 2,408 reports (the corpus has no line breaks). Parser v2 and T/N scoring added. |
+| 1. Reports | Read pathologic T and N stage from TCGA pathology reports, scored against GDC clinical labels | First results below. Trial criteria on top of these fields: next. |
 | 2. Slides | Organ classification and similar-slide search with an open foundation model; site-bias study | Not started |
 | 3. Demo | Public Streamlit app on the public results | Not started |
+
+## Results so far (Track 1)
+
+2,408 TCGA pathology reports from four cancer types, OCR text from the [TCGA-Reports](https://data.mendeley.com/datasets/hyg5xkznpx/1) corpus. "Labels" are the pathologic T and N categories in the NCI Genomic Data Commons (GDC). Scores compare main categories (T2a and T2b both count as T2).
+
+| Cancer type | Reports with a GDC label | T end-to-end | N end-to-end | Accuracy when a value is found (T / N) |
+|---|---|---|---|---|
+| Colon (COAD) | 351 | 91% | 77% | 98% / 98% |
+| Lung adenocarcinoma (LUAD) | 380 | 74% | 67% | 95% / 97% |
+| Lung squamous (LUSC) | 391 | 64% | 61% | 97% / 98% |
+| Breast (BRCA) | 945 | 59% | 54% | 95% / 96% |
+
+End-to-end = correct values / all labelled reports, so a value we fail to find counts as a miss. Full numbers: [`results/tnm_scores.json`](results/tnm_scores.json).
+
+**How we got here.** The hackathon parser, unchanged, found labelled fields in **2%** of these reports. The synthetic hackathon reports had one field per line, and this corpus has no line breaks at all. Each fix afterwards came from reading the reports the code got wrong:
+
+1. Headings are now found anywhere in the text, with a synonym table built from the most common unmatched headings. Reports with no labelled fields fell from 98% to 19%.
+2. T and N are now read when written without the "p" ("T3N0MX", "T2, NO, MX"), with spaces ("p T 3"), or with OCR's letter O for zero ("pNO").
+3. A T in the staging line is now preferred over a passing mention ("Visceral pleural invasion: present (pT2)").
+
+Accuracy when a value was found stayed at 95–98% throughout. The gains came from finding more, not from loosening the rules.
+
+**Limitations.**
+- GDC labels are not ground truth. In a manual review of 15 disagreements, about half were reports that clearly state a different stage from GDC, for example an amended report that corrects the staging. GDC may draw on sources beyond the report. 15 cases is a small sample, so this is a lead to follow up, not a measured error rate.
+- Some reports contain no staging at all, so no text method can reach 100% end-to-end.
+- The scores cover only four cancer types, and only T and N. The trial criteria built on these fields are not scored yet.
 
 ## Layout
 
@@ -35,7 +61,7 @@ pytest -q                                   # helpers behave as expected
 python scripts/01_load_reports.py
 python scripts/02_get_gdc_clinical.py
 python scripts/03_baseline_coverage.py      # how much does the parser find on real reports?
-python scripts/04_score_tnm.py              # T and N accuracy against GDC labels
+python scripts/04_score_tnm.py              # T and N accuracy against GDC labels; warns if worse than committed results
 ```
 
 Data and model licences: [DATA_SOURCES.md](DATA_SOURCES.md).

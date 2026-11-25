@@ -14,7 +14,7 @@ Disagreements go to data/interim/tnm_disagreements.jsonl (git-ignored, it contai
 Read 20 of them: some will be our bugs, some will be GDC label errors. Knowing the split
 matters more than the score.
 """
-import json, re
+import json, re, subprocess
 from collections import defaultdict
 from pathlib import Path
 from prss.reports.criteria import extract_tnm
@@ -64,6 +64,28 @@ for (proj, letter), s in sorted(stats.items()):
     e2e = s["correct"] / s["labelled"]
     print(f"{proj:10s} {letter:2s} {s['labelled']:8d} {cov:9.1%} {acc:14.1%} {e2e:11.1%}")
     out[f"{proj}_{letter}"] = {"labelled": s["labelled"], "coverage": cov, "accuracy_when_extracted": acc, "end_to_end": e2e}
+
+# ---- Regression check: compare with the scores committed in git (not the file on disk, which
+# the last run may already have overwritten with worse numbers). Added after a run where N
+# coverage silently fell 9-15 points because two changes were combined in the wrong order.
+TOLERANCE = 0.01   # ignore changes under 1 percentage point
+try:
+    committed = json.loads(subprocess.run(["git", "show", "HEAD:results/tnm_scores.json"], cwd=ROOT,
+                                          capture_output=True, text=True, check=True).stdout)
+except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+    committed = None
+if committed:
+    drops = [(key, metric, committed[key][metric], now[metric])
+             for key, now in out.items() if key in committed
+             for metric in ("coverage", "accuracy_when_extracted", "end_to_end")
+             if now[metric] < committed[key][metric] - TOLERANCE]
+    if drops:
+        print("\nWARNING: worse than the committed results (git HEAD):")
+        for key, metric, before, now in drops:
+            print(f"  {key:12s} {metric:24s} {before:6.1%} -> {now:6.1%}")
+        print("Check the branch you are on and what changed before committing these numbers.")
+    else:
+        print("\nRegression check: nothing worse than the committed results.")
 
 (ROOT / "data/interim/tnm_disagreements.jsonl").write_text("\n".join(json.dumps(b) for b in bad))
 (ROOT / "results").mkdir(exist_ok=True)
