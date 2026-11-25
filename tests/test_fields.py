@@ -88,3 +88,21 @@ def test_tnm_after_staging_word():
 
 def test_tnm_still_ignores_stray_t():
     assert tnm("T2-weighted MRI showed a mass; specimen T1 block") == (None, None)
+
+
+# ---- v4: from the disagreement review (25 Nov 2026) ----
+def test_tnm_prefers_staging_line_over_passing_mention():
+    text = ("Visceral Pleural Involvement: Present (pT2). Satellite Tumor(s): Absent. "
+            "Pathologic Staging: Primary Tumor: pT3. Regional Lymph Nodes: pN1.")
+    assert tnm(text) == ("T3", "N1")
+
+
+def test_tnm_ignores_pt_inside_words():
+    assert tnm("immunohistochemical methods (DAKO HercepTest) with the following") == (None, None)
+
+
+def test_tnm_match_position():
+    from prss.reports.fields import tnm_match
+    text = "Nuclear score:3, Pathological TNM stage: pT2. Dr."
+    t, n, pos = tnm_match(text)
+    assert t == "T2" and "TNM stage: pT2" in text[pos:]
