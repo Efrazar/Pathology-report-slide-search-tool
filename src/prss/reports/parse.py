@@ -21,7 +21,7 @@ import re
 # canonical field name -> lower-case headings seen in reports that mean the same thing.
 # Extend this from the "most common headings" list that script 03 prints.
 SYNONYMS = {
-    "Specimen": ["specimen", "specimens", "specimens submitted", "specimen type", "material"],
+    "Specimen": ["specimen", "specimens", "specimens submitted", "specimen type", "material", "specimen(s)"],
     "Procedure": ["procedure"],
     "Histologic type": ["histologic type", "histological type", "tumor type", "tumour type", "histology"],
     "Histologic grade": ["histologic grade", "histological grade", "grade", "fuhrman nuclear grade",
@@ -31,14 +31,17 @@ SYNONYMS = {
     "Lymphovascular invasion": ["lymphovascular invasion", "lymph-vascular invasion", "angiolymphatic invasion",
                                 "vascular invasion", "venous (large vessel) invasion"],
     "Perineural invasion": ["perineural invasion"],
-    "Lymph nodes": ["lymph nodes", "regional lymph nodes", "number of lymph nodes examined"],
+    "Lymph nodes": ["lymph nodes", "regional lymph nodes", "number of lymph nodes examined", "lymph node status",
+                    "regional lymph nodes (pn)"],
     "Pathologic stage": ["pathologic stage", "pathologic staging", "pathological staging", "staging",
-                         "ajcc stage", "tnm", "pathologic staging (ptnm)"],
+                         "ajcc stage", "tnm", "pathologic staging (ptnm)", "primary tumor (pt)"],
     "Estrogen receptor": ["estrogen receptor", "er"],
     "Progesterone receptor": ["progesterone receptor", "pr"],
     "HER2": ["her2", "her2/neu", "her-2/neu"],
+    "Tumor site": ["tumor site", "tumor location", "laterality", "specimen laterality"],
+    "Diagnosis": ["diagnosis", "final diagnosis"]
 }
-_CANON = {syn: canon for canon, syns in SYNONYMS.items() for syn in syns}
+_CANON = {syn.strip().lower(): canon for canon, syns in SYNONYMS.items() for syn in syns}
 
 # A heading: starts at the beginning or after ". ", "; " or ": ", then 1-6 words (the first
 # capitalised), an optional bracket, then a colon. Capping at 6 words is what stops ordinary
