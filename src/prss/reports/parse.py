@@ -69,6 +69,10 @@ def parse(text):
     """Return {"fields": {name: value}, "unknown": {heading: value}, "text": text}."""
     fields, unknown = {}, {}
     for head, value in headings(text):
+        if not value:
+            # A section title right before a sub-heading ("FINAL DIAGNOSIS: Tumor size: ...") has
+            # an empty value. Storing it would block a later, real value for the same field.
+            continue
         canon = _CANON.get(head.lower())
         if canon:
             fields.setdefault(canon, value)    # first occurrence wins; addenda come later
