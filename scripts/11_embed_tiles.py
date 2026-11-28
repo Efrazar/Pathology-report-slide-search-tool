@@ -6,7 +6,7 @@ vectors, never the pixels, so this is the only step that needs the GPU. Run it o
 
 Before the first run:
 - accept the model's terms at https://huggingface.co/bioptimus/H-optimus-0
-- run `huggingface-cli login` with a read token (huggingface.co > Settings > Access Tokens)
+- run `hf auth login` (older huggingface_hub: `huggingface-cli login`) with a read token (huggingface.co > Settings > Access Tokens)
 - install the slide extras: pip install -e ".[slides]"
 - check: python -c "import torch; print(torch.cuda.is_available())" should print True
 
