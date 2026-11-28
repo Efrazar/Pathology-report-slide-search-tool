@@ -92,7 +92,7 @@ pip install -e ".[slides]"                  # torch, timm, huggingface_hub
 python -c "import torch; print(torch.cuda.is_available())"   # must print True for step 11
 # accept the terms at https://huggingface.co/bioptimus/H-optimus-0, then:
 hf auth login                               # paste a read token (older huggingface_hub: huggingface-cli login)
-python scripts/10_get_pannuke.py            # 3 folds, about 3 GB download; tiles per tissue type
+python scripts/10_get_pannuke.py            # 3 folds, about 2 GB download (resumes if cut); tiles per tissue type
 python scripts/11_embed_tiles.py --smoke    # 1 minute, random tiny model: checks the pipeline
 python scripts/11_embed_tiles.py            # H-optimus-0, fp16; the only GPU step
 python scripts/12_organ_probe.py            # linear probe: accuracy, balanced accuracy, macro F1
