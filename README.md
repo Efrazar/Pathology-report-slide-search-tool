@@ -99,4 +99,17 @@ python scripts/12_organ_probe.py            # linear probe: accuracy, balanced a
 python scripts/13_similar_tiles.py          # precision at 1, 5, 10 against a chance line
 ```
 
+### Track 2b: can the model tell the hospital? (TCGA breast slides)
+
+```bash
+pip install -e ".[slides]"                  # now also installs openslide, to read whole slides
+python scripts/20_pick_tcga_slides.py --per-site 3   # pilot: 6 hospitals x 3 patients; prints the download size
+python scripts/21_tile_tcga_slides.py       # download a slide, cut 64 tissue tiles, delete it; resumable
+python scripts/11_embed_tiles.py --dataset tcga
+python scripts/22_site_bias.py              # site probe and search check, against shuffled-label chance
+# full run: same commands without --per-site 3 (12 patients per hospital); tiled slides are skipped
+```
+
+Check `data/interim/tcga_tiles/previews/` by eye: every sheet should show tissue, not glass or pen marks.
+
 Data and model licences: [DATA_SOURCES.md](DATA_SOURCES.md).

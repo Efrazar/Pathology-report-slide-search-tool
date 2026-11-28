@@ -21,7 +21,10 @@ Choices, and why:
 - The normalisation numbers come from the model card. They must match training, or the model
   sees colours it never saw.
 
-Output: data/interim/embeddings/<model>_fold{1,2,3}.npy (float32, N x 1536) and a copy of the
+TCGA hospital study (after script 21):  python scripts/11_embed_tiles.py --dataset tcga
+
+Output: data/interim/embeddings/<model>_fold{1,2,3}.npy (or <model>_tcga.npy with
+--dataset tcga), float32, N x 1536, and a copy of the
 labels next to each, so steps 12 and 13 do not need the 1.5 GB of tiles at all.
 
 Smoke test (no GPU, no download, random weights; checks that the pipeline runs):
@@ -35,7 +38,7 @@ import torch
 import torch.nn.functional as F
 import timm
 
-from prss.slides.data import FOLDS, PANNUKE, ROOT, load_fold
+from prss.slides.data import FOLDS, PANNUKE, ROOT, load_fold, load_tcga_tiles
 
 MODELS = {
     # name: (timm id, extra create_model arguments, mean, std)
@@ -47,7 +50,10 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="hoptimus0", choices=list(MODELS))
 ap.add_argument("--batch", type=int, default=32, help="lower it if you get CUDA out of memory")
 ap.add_argument("--data", default=str(PANNUKE))
-ap.add_argument("--smoke", action="store_true", help="tiny random model, first 64 tiles per fold")
+ap.add_argument("--dataset", default="pannuke", choices=["pannuke", "tcga"],
+                help="tcga: the hospital-study tiles from script 21")
+ap.add_argument("--smoke", action="store_true", help="tiny random model, first 64 tiles per part")
+ap.add_argument("--limit", type=int, help="embed only the first N tiles per part (default: all; 64 with --smoke)")
 args = ap.parse_args()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -68,9 +74,16 @@ std = torch.tensor(std, device=device).view(1, 3, 1, 1)
 out_dir = ROOT / "data" / "interim" / "embeddings"
 out_dir.mkdir(parents=True, exist_ok=True)
 
-for k in FOLDS:
-    images, types = load_fold(k, args.data)
-    n = 64 if args.smoke else len(images)
+# Each "part" is embedded and saved separately: the 3 PanNuke folds, or the one TCGA tile set.
+# For TCGA the saved "types" are the hospital (tissue source site) codes.
+if args.dataset == "pannuke":
+    parts = [(f"fold{k}", lambda k=k: load_fold(k, args.data)) for k in FOLDS]
+else:
+    parts = [("tcga", load_tcga_tiles)]
+
+for k, load in parts:
+    images, types = load()
+    n = min(args.limit or (64 if args.smoke else len(images)), len(images))
     vecs, t0 = [], time.time()
     for i in range(0, n, args.batch):
         # uint8 (B, 256, 256, 3) -> float (B, 3, 224, 224), scaled to 0-1, then normalised
@@ -84,12 +97,12 @@ for k in FOLDS:
             vecs.append(model(x).float().cpu().numpy())
         if (i // args.batch) % 20 == 0:
             done = min(i + args.batch, n)
-            print(f"  fold {k}: {done}/{n} tiles, {done / (time.time() - t0):.0f} tiles/s", flush=True)
+            print(f"  {k}: {done}/{n} tiles, {done / (time.time() - t0):.0f} tiles/s", flush=True)
     emb = np.concatenate(vecs)
     if not np.isfinite(emb).all():   # fp16 overflow shows up as inf/nan; better to stop than to score it
-        raise SystemExit(f"fold {k}: non-finite values in the embeddings")
-    np.save(out_dir / f"{name}_fold{k}.npy", emb)
-    np.save(out_dir / f"{name}_fold{k}_types.npy", types[:n])
-    print(f"fold {k}: saved {emb.shape} in {time.time() - t0:.0f} s")
+        raise SystemExit(f"{k}: non-finite values in the embeddings")
+    np.save(out_dir / f"{name}_{k}.npy", emb)
+    np.save(out_dir / f"{name}_{k}_types.npy", types[:n])
+    print(f"{k}: saved {emb.shape} in {time.time() - t0:.0f} s")
     if device == "cuda":
         print(f"  peak GPU memory so far: {torch.cuda.max_memory_allocated() / 1e9:.1f} GB")
