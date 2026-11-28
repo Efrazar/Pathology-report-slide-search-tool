@@ -44,3 +44,15 @@ def chance_precision(query_labels, gallery_labels):
     labels, counts = np.unique(np.asarray(gallery_labels), return_counts=True)
     share = dict(zip(labels, counts / counts.sum()))
     return float(np.mean([share.get(q, 0.0) for q in query_labels]))
+
+
+def best_precision(query_labels, gallery_labels, ks=(1, 5, 10)):
+    """The highest precision at k that a PERFECT search could reach on this gallery.
+
+    A query of type c can find at most (number of c tiles in the gallery) correct neighbours.
+    If the gallery holds 6 uterus tiles, a uterus query scores at most 6/10 at k=10, however
+    good the model is. Averaging min(k, n_c) / k over queries gives the ceiling for each k.
+    """
+    labels, counts = np.unique(np.asarray(gallery_labels), return_counts=True)
+    n = dict(zip(labels, counts))
+    return {k: float(np.mean([min(k, n.get(q, 0)) / k for q in query_labels])) for k in ks}

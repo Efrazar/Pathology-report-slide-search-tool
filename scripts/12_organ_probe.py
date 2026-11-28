@@ -37,7 +37,10 @@ EMB = ROOT / "data" / "interim" / "embeddings"
 X = {k: np.load(EMB / f"{args.model}_fold{k}.npy") for k in (1, 2, 3)}
 y = {k: np.load(EMB / f"{args.model}_fold{k}_types.npy") for k in (1, 2, 3)}
 classes = sorted(set(np.concatenate(list(y.values()))))
-C_GRID = [0.001, 0.01, 0.1, 1.0]
+# C = how little we regularise (larger C = the classifier may fit the training fold more closely).
+# v2: 10 and 100 added after the first run picked C=1.0, the top of the old grid, every time.
+# A winner at the edge of the grid means the best value may lie outside it.
+C_GRID = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]
 
 
 def fit(train, C):
@@ -51,6 +54,8 @@ rounds = []
 for train, tune, test in [(1, 2, 3), (2, 3, 1), (3, 1, 2)]:
     tuning = {C: balanced_accuracy_score(y[tune], fit(train, C).predict(X[tune])) for C in C_GRID}
     best_C = max(tuning, key=tuning.get)
+    if best_C in (C_GRID[0], C_GRID[-1]):
+        print(f"  note: C={best_C} is at the edge of the grid; the best value may lie beyond it")
     pred = fit(train, best_C).predict(X[test])
     rounds.append(dict(
         train=train, tune=tune, test=test, C=best_C, tune_balanced_accuracy=tuning,

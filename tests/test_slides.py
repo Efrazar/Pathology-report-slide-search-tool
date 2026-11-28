@@ -1,7 +1,7 @@
 """Tests for the similar-tile scores. Run with:  pytest -q"""
 import numpy as np
 
-from prss.slides.metrics import chance_precision, nearest, precision_at_k
+from prss.slides.metrics import best_precision, chance_precision, nearest, precision_at_k
 
 
 def test_nearest_finds_most_similar_first():
@@ -23,3 +23,8 @@ def test_precision_at_k():
 def test_chance_precision_counts_class_share():
     # gallery is 3/4 "a": a random neighbour of an "a" query matches 75% of the time, of a "b" 25%
     assert chance_precision(["a", "b"], ["a", "a", "a", "b"]) == 0.5
+
+
+def test_best_precision_is_capped_by_gallery_size():
+    # 2 "b" tiles in the gallery: a "b" query can be right at most 2 times out of 4
+    assert best_precision(["a", "b"], ["a"] * 5 + ["b"] * 2, ks=(1, 4)) == {1: 1.0, 4: 0.75}
