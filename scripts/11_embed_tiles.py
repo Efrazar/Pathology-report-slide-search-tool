@@ -6,7 +6,7 @@ vectors, never the pixels, so this is the only step that needs the GPU. Run it o
 
 Before the first run:
 - accept the model's terms at https://huggingface.co/bioptimus/H-optimus-0
-- run `huggingface-cli login` with a read token (huggingface.co > Settings > Access Tokens)
+- run `hf auth login` (older huggingface_hub: `huggingface-cli login`) with a read token (huggingface.co > Settings > Access Tokens)
 - install the slide extras: pip install -e ".[slides]"
 - check: python -c "import torch; print(torch.cuda.is_available())" should print True
 
@@ -74,7 +74,8 @@ for k in FOLDS:
     vecs, t0 = [], time.time()
     for i in range(0, n, args.batch):
         # uint8 (B, 256, 256, 3) -> float (B, 3, 224, 224), scaled to 0-1, then normalised
-        x = torch.from_numpy(np.array(images[i:min(i + args.batch, n)]))  # np.array copies off the read-only map.to(device)
+        # np.array copies the batch off the read-only memory map, so torch gets a normal array
+        x = torch.from_numpy(np.array(images[i:min(i + args.batch, n)])).to(device)
         x = x.permute(0, 3, 1, 2).float().div(255)
         x = F.interpolate(x, size=224, mode="bilinear", antialias=True, align_corners=False)
         x = (x - mean) / std
