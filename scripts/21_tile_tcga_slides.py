@@ -28,6 +28,11 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
+try:
+    import openslide                       # checked here, before any download starts
+except ImportError:
+    raise SystemExit('openslide is missing: run  pip install -e ".[slides]"  first')
+
 from prss.download import fetch
 from prss.slides.data import ROOT, TCGA_TILES
 
@@ -57,7 +62,6 @@ def otsu(values):
 
 def slide_mpp(slide):
     """Micrometres per pixel at full resolution. TCGA slides usually say; if not, use the objective."""
-    import openslide
     mpp = slide.properties.get(openslide.PROPERTY_NAME_MPP_X)
     if mpp:
         return float(mpp)
@@ -66,7 +70,6 @@ def slide_mpp(slide):
 
 
 def tile_slide(path, seed):
-    import openslide
     slide = openslide.OpenSlide(str(path))
     mpp = slide_mpp(slide)
     if mpp is None:
