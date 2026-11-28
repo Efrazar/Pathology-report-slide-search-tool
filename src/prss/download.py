@@ -18,6 +18,9 @@ def fetch(url, dest, check=None, tries=30, label=""):
     part = dest.with_name(dest.name + ".part")
     dest.parent.mkdir(parents=True, exist_ok=True)
     label = label or dest.name
+    if dest.exists() and (check is None or check(dest)):   # finished on an earlier run
+        print(f"  {label}: already downloaded")
+        return dest
     for attempt in range(1, tries + 1):
         have = part.stat().st_size if part.exists() else 0
         try:
