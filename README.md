@@ -143,6 +143,7 @@ python scripts/20_pick_tcga_slides.py --per-site 3   # pilot: 6 hospitals x 3 pa
 python scripts/21_tile_tcga_slides.py       # download a slide, cut 64 tissue tiles, delete it; resumable
 python scripts/11_embed_tiles.py --dataset tcga
 python scripts/22_site_bias.py              # site probe and search check, against shuffled-label chance
+python scripts/23_slide_metadata.py         # scanner, magnification, compression per slide, read from the header only
 # full run: same commands without --per-site 3 (12 patients per hospital); tiled slides are skipped
 ```
 
